@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    # Supabase Postgres JDBC URL
+    # host/port/db_name? ?????? ????? ??
+    url: jdbc:postgresql://${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}/${SUPABASE_DB_NAME}?sslmode=require
+    username: ${SUPABASE_DB_USER}
+    password: ${SUPABASE_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+    # HikariCP ??? ? ??
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 600000      # 10?
+      max-lifetime: 1800000     # 30?
+      connection-timeout: 30000 # 30?
+
+  jpa:
+    hibernate:
+      ddl-auto: none  # ???? Supabase SQL? ?? ??????, ???? ???? ??
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+logging:
+  level:
+    org.hibernate.SQL: debug      # ???? SQL? ?? ??? debug
+    org.hibernate.type: trace     # ????? ?????? ?? ??? trace
