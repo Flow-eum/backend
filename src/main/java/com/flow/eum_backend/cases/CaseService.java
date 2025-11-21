@@ -60,6 +60,8 @@ public class CaseService {
                 .updatedAt(now)
                 .build();
 
+        caseRepository.save(entity);
+
         CaseMember member = CaseMember.builder()
                 .id(UUID.randomUUID())
                 .caseId(entity.getId())
