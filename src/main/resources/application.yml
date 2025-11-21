@@ -28,4 +28,3 @@ logging:
 supabase:
   jwt:
     secret: ${SUPABASE_JWT_SECRET}
-    issuer: supabase
