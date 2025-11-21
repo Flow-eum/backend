@@ -2,6 +2,7 @@ package com.flow.eum_backend.api;
 
 import com.flow.eum_backend.auth.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,7 +21,11 @@ public class MeController {
     }
 
     @GetMapping("/api/me")
-    @Operation(summary = "현재 로그인한 사용자 ID 조회", description = "Supabase JWT에서 추출한 userId(UUID)를 반환합니다.")
+    @Operation(
+            summary = "현재 로그인한 사용자 ID 조회",
+            description = "Supabase JWT에서 추출한 userId(UUID)를 반환합니다.",
+            security = { @SecurityRequirement(name = "bearerAuth")}
+    )
     public String me() {
         // CurrentUser 유틸을 통해 SecurityContext에서 userId 가져오기
         UUID userId = currentUser.getUserIdOrThrow();
