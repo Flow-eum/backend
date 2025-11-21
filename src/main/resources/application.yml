@@ -24,3 +24,7 @@ logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.type: trace
+
+supabase:
+  jwt:
+    secret: ${SUPABASE_JWT_SECRET}

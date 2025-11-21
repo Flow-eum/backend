@@ -27,9 +27,16 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13' // swagger ui
 	implementation("me.paulschwarz:spring-dotenv:4.0.0") // env 파일 읽어줌
 	implementation("org.postgresql:postgresql:42.7.3") // PostgreSQL 드라이버
+	// JWT 라이브러리
+	implementation "io.jsonwebtoken:jjwt-api:0.12.6"
+	runtimeOnly "io.jsonwebtoken:jjwt-impl:0.12.6"
+	runtimeOnly "io.jsonwebtoken:jjwt-jackson:0.12.6"
+
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
