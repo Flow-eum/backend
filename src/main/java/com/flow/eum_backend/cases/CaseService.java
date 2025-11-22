@@ -1,5 +1,6 @@
 package com.flow.eum_backend.cases;
 
+import com.flow.eum_backend.audit.AuditLogService;
 import com.flow.eum_backend.auth.CurrentUser;
 import com.flow.eum_backend.cases.dto.CaseCreateRequest;
 import com.flow.eum_backend.cases.dto.CaseDetailDto;
@@ -14,6 +15,7 @@ import org.springframework.web.servlet.DispatcherServlet;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,7 +29,7 @@ public class CaseService {
     private final CaseRepository caseRepository;
     private final CaseMemberRepository caseMemberRepository;
     private final CurrentUser currentUser;
-    private final DispatcherServlet dispatcherServlet;
+    private final AuditLogService auditLogService;
 
     /*
         새 사례 생성
@@ -73,6 +75,16 @@ public class CaseService {
                 .build();
 
         caseMemberRepository.save(member);
+
+        auditLogService.logCurrentUserAction(
+                "CREATE_CASE",
+                "case",
+                entity.getId(),
+                Map.of(
+                        "displayCode", entity.getDisplayCode(),
+                        "title", entity.getTitle()
+                )
+        );
 
         List<CaseMemberDto> members = List.of(CaseMemberDto.fromEntity(member));
 
@@ -132,6 +144,15 @@ public class CaseService {
                 .map(CaseMemberDto::fromEntity)
                 .collect(Collectors.toList());
 
+        auditLogService.logCurrentUserAction(
+                "VIEW_CASE_DETAIL",
+                "case",
+                caseId,
+                Map.of(
+                        "displayCode", entity.getDisplayCode(),
+                        "title", entity.getTitle()
+                )
+        );
         return CaseDetailDto.fromEntity(entity, members);
     }
 
