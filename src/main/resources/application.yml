@@ -1,3 +1,6 @@
+server:
+  port: ${PORT:8080}
+
 spring:
   datasource:
     url: jdbc:postgresql://${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}/${SUPABASE_DB_NAME}?sslmode=require
