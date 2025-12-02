@@ -4,10 +4,7 @@ import com.flow.eum_backend.assessment.dto.AssessmentFormDto;
 import com.flow.eum_backend.assessment.dto.SaveAssessmentRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -18,6 +15,7 @@ public class AssessmentController {
 
     private final AssessmentStructuredService assessmentService;
 
+    @PostMapping
     public ResponseEntity<Void> saveAssessment(
             @PathVariable("caseId") UUID caseId,
             @RequestBody SaveAssessmentRequest request
@@ -27,6 +25,7 @@ public class AssessmentController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/latest")
     public ResponseEntity<AssessmentFormDto> getLatestAssessment(
             @PathVariable("caseId") UUID caseId
     ) {
