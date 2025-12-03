@@ -4,9 +4,8 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record SupervisionRequestCreateRequest(
+        UUID caseId,
         UUID supervisorUserId,
-        String reason,
-        OffsetDateTime allowedFrom,
-        OffsetDateTime allowedUntil
+        String reason
 ) {
 }

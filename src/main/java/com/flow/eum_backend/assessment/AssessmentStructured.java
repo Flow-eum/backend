@@ -1,4 +1,4 @@
-package com.flow.eum_backend.supervision;
+package com.flow.eum_backend.assessment;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -6,17 +6,18 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "supervision_requests")
+@Table(name = "assessment_structured")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SupervisionRequest {
+public class AssessmentStructured {
 
     @Id
     @UuidGenerator
@@ -27,32 +28,23 @@ public class SupervisionRequest {
     @JdbcTypeCode(SqlTypes.UUID)
     private UUID caseId;
 
-    /**
-     * 요청을 보낸 사람 (A, 열람하고 싶은 사람)
-     */
-    @Column(name = "requester_user_id", nullable = false)
+    @Column(name = "assessment_type")
+    private String assessmentType; // "initial", "reassessment" 등
+
+    @Column(name = "assessment_date")
+    private LocalDate assessmentDate;
+
+    @Column(name = "prepared_by_user_id")
     @JdbcTypeCode(SqlTypes.UUID)
-    private UUID requesterUserId;
+    private UUID preparedByUserId;
 
     /**
-     * 요청을 받은 사람 (B, case 담당자/슈퍼바이저)
+     * 사정 기록지 전체 내용을 jsonb로 저장하는 필드.
+     * (client_basic, meeting, family_members 등 전부 포함)
      */
-    @Column(name = "supervisor_user_id", nullable = false)
-    @JdbcTypeCode(SqlTypes.UUID)
-    private UUID supervisorUserId;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    private SupervisionStatus status;
-
-    @Column(name = "reason")
-    private String reason;
-
-    @Column(name = "allowed_from")
-    private OffsetDateTime allowedFrom;
-
-    @Column(name = "allowed_until")
-    private OffsetDateTime allowedUntil;
+    @Column(name = "assessment_json", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String assessmentJson;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -60,17 +52,19 @@ public class SupervisionRequest {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "genogram_json", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String genogramJson;
+
     @PrePersist
     public void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
-        if (status == null) status = SupervisionStatus.PENDING;
     }
 
     @PreUpdate
     public void onUpdate() {
         updatedAt = OffsetDateTime.now();
     }
-
 }
