@@ -1,10 +1,10 @@
 package com.flow.eum_backend.supervision;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -19,27 +19,31 @@ import java.util.UUID;
 public class SupervisionRequest {
 
     @Id
-    @Column(name = "id", nullable = false, columnDefinition = "uuid")
+    @UuidGenerator
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID id;
 
-    @Column(name = "case_id", nullable = false, columnDefinition = "uuid")
+    @Column(name = "case_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID caseId;
 
-    @Column(name = "requester_user_id", nullable = false, columnDefinition = "uuid")
+    /**
+     * 요청을 보낸 사람 (A, 열람하고 싶은 사람)
+     */
+    @Column(name = "requester_user_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID requesterUserId;
 
-    @Column(name = "supervisor_user_id", nullable = false, columnDefinition = "uuid")
+    /**
+     * 요청을 받은 사람 (B, case 담당자/슈퍼바이저)
+     */
+    @Column(name = "supervisor_user_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID supervisorUserId;
 
-    /*
-        요청 상태
-        - pending: 대기중
-        - approved: 승인됨
-        - rejected: 거절됨
-        - revoked: 요청자가 중간에 취소
-     */
-    @Column(name = "status", nullable = false)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private SupervisionStatus status;
 
     @Column(name = "reason")
     private String reason;
@@ -55,5 +59,18 @@ public class SupervisionRequest {
 
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    @PrePersist
+    public void onCreate() {
+        OffsetDateTime now = OffsetDateTime.now();
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+        if (status == null) status = SupervisionStatus.PENDING;
+    }
+
+    @PreUpdate
+    public void onUpdate() {
+        updatedAt = OffsetDateTime.now();
+    }
 
 }

@@ -7,6 +7,7 @@ import com.flow.eum_backend.cases.CaseEntity;
 import com.flow.eum_backend.cases.CaseMemberRepository;
 import com.flow.eum_backend.cases.CaseRepository;
 import com.flow.eum_backend.sessions.dto.*;
+import com.flow.eum_backend.supervision.SupervisionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class SessionRecordService {
     private final CaseMemberRepository caseMemberRepository;
     private final CurrentUser currentUser;
     private final ObjectMapper objectMapper;
+    private final SupervisionService supervisionService;
 
     /*
         새 상담 회차 메타 생성
@@ -93,11 +95,7 @@ public class SessionRecordService {
         UUID userId = currentUser.getUserIdOrThrow();
 
         // 이 케이스의 멤버인지 확인
-        caseMemberRepository.findByCaseIdAndUserIdAndIsActiveTrue(caseId, userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "이 사례의 상담 회차를 조회할 권한이 없습니다."
-                ));
+        checkCaseAccessOrThrow(caseId, userId, "이 사례의 상담 회차를 조회할 권한이 없습니다.");
 
         List<SessionRecordMeta> list =
                 sessionRecordMetaRepository.findByCaseIdOrderBySeqAsc(caseId);
@@ -115,11 +113,7 @@ public class SessionRecordService {
         UUID userId = currentUser.getUserIdOrThrow();
 
         // 권한 체크
-        caseMemberRepository.findByCaseIdAndUserIdAndIsActiveTrue(caseId, userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "이 사례의 상담 회차를 조회할 권한이 없습니다."
-                ));
+        checkCaseAccessOrThrow(caseId, userId, "이 사례의 상담 회차를 조회할 권한이 없습니다.");
 
         SessionRecordMeta entity = sessionRecordMetaRepository
                 .findByIdAndCaseId(sessionId, caseId)
@@ -192,11 +186,7 @@ public class SessionRecordService {
         UUID userId = currentUser.getUserIdOrThrow();
 
         // 케이스 멤버 권한 체크
-        caseMemberRepository.findByCaseIdAndUserIdAndIsActiveTrue(caseId, userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "이 사례의 AI 결과를 저장할 권한이 없습니다."
-                ));
+        checkCaseAccessOrThrow(caseId, userId, "이 사례의 AI 결과를 저장할 권한이 없습니다.");
 
         SessionRecordMeta meta = sessionRecordMetaRepository
                 .findByIdAndCaseId(sessionId, caseId)
@@ -219,11 +209,7 @@ public class SessionRecordService {
     public AiOutputsResponse getAiOutputs(UUID caseId, UUID sessionId) {
         UUID userId = currentUser.getUserIdOrThrow();
 
-        caseMemberRepository.findByCaseIdAndUserIdAndIsActiveTrue(caseId, userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "이 사례의 AI 결과를 조회할 권한이 없습니다."
-                ));
+        checkCaseAccessOrThrow(caseId, userId, "이 사례의 AI 결과를 조회할 권한이 없습니다.");
 
         SessionRecordMeta meta = sessionRecordMetaRepository
                 .findByIdAndCaseId(sessionId, caseId)
@@ -263,6 +249,18 @@ public class SessionRecordService {
             return objectMapper.writeValueAsString(outputs);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize ai_outputs", e);
+        }
+    }
+
+    private void checkCaseAccessOrThrow(UUID caseId, UUID userId, String messageIfForbidden) {
+        boolean isMember = caseMemberRepository
+                .findByCaseIdAndUserIdAndIsActiveTrue(caseId, userId)
+                .isPresent();
+
+        boolean hasSupervision = supervisionService.hasSupervisionAccess(userId, caseId);
+
+        if (!isMember && !hasSupervision) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, messageIfForbidden);
         }
     }
 }

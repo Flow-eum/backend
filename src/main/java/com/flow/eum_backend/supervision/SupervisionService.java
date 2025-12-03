@@ -24,263 +24,119 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SupervisionService {
 
-    private final SupervisionRequestRepository requestRepository;
-    private final SupervisionShareRepository shareRepository;
-    private final CaseRepository caseRepository;
-    private final CaseMemberRepository caseMemberRepository;
-    private final SessionRecordMetaRepository sessionRecordMetaRepository;
-    private final CaseDocumentMetaRepository caseDocumentMetaRepository;
+    private final SupervisionRequestRepository supervisionRequestRepository;
     private final CurrentUser currentUser;
 
     /*
-        특정 사례에 대해 슈퍼비전 요청 생성
+        A가 B에게 특정 case 열람 요청 보내기
      */
     @Transactional
-    public SupervisionRequestDto createRequest(UUID caseId, SupervisionRequestCreateRequest request) {
-        UUID userId = currentUser.getUserIdOrThrow();
-
-        // 1) 사례 존재 여부 확인
-        CaseEntity caseEntity = caseRepository.findById(caseId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "해당 사례를 찾을 수 없습니다."
-                ));
-
-        // 2) 이 사례에 대한 멤버인지(상담자인지) 확인
-        caseMemberRepository.findByCaseIdAndUserIdAndIsActiveTrue(caseEntity.getId(), userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN, "이 사례에 대해 슈퍼비전을 요청할 권한이 없습니다."
-                ));
-
-        // 3) 자기 자신에게 슈퍼비전 요청 보내는건 막기 (옵션)
-        if (userId.equals(request.supervisorUserId())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "자기 자신에게 슈퍼비전을 요청할 수 없습니다."
-            );
-        }
-
-        OffsetDateTime now = OffsetDateTime.now();
+    public SupervisionRequestResponse requestView(SupervisionRequestCreateRequest req) {
+        UUID requesterId = currentUser.getUserIdOrThrow();
 
         SupervisionRequest entity = SupervisionRequest.builder()
-                .id(UUID.randomUUID())
-                .caseId(caseEntity.getId())
-                .requesterUserId(userId)
-                .supervisorUserId(request.supervisorUserId())
-                .status("pending")
-                .reason(request.reason())
-                .allowedFrom(request.allowedFrom())
-                .allowedUntil(request.allowedUntil())
-                .createdAt(now)
-                .updatedAt(now)
+                .caseId(req.caseId())
+                .requesterUserId(requesterId)
+                .supervisorUserId(req.supervisorUserId())
+                .status(SupervisionStatus.PENDING)
+                .reason(req.reason())
                 .build();
 
-        requestRepository.save(entity);
+        supervisionRequestRepository.save(entity);
 
-        return SupervisionRequestDto.fromEntity(entity);
+        return SupervisionRequestResponse.fromEntity(entity);
     }
 
     /*
-        내가 요청자로 보낸 모든 슈퍼비전 요청 목록
+        B입장에서, 나에게 들어온 PENDING 요청 목록
      */
     @Transactional(readOnly = true)
-    public List<SupervisionRequestDto> listMyRequestsAsRequester() {
-        UUID userId = currentUser.getUserIdOrThrow();
+    public List<SupervisionRequestResponse> listIncomingPending() {
+        UUID supervisorId = currentUser.getUserIdOrThrow();
 
-        return requestRepository.findByRequesterUserIdOrderByCreatedAtDesc(userId)
+        return supervisionRequestRepository
+                .findBySupervisorUserIdAndStatusOrderByCreatedAtDesc(
+                        supervisorId,
+                        SupervisionStatus.PENDING
+                )
                 .stream()
-                .map(SupervisionRequestDto::fromEntity)
-                .collect(Collectors.toList());
+                .map(SupervisionRequestResponse::fromEntity)
+                .toList();
     }
 
     /*
-        내가 슈퍼바이저로 받은 모든 슈퍼비전 요청 목록
+        A 입장에서, 내가 보낸 요청 목록
      */
     @Transactional(readOnly = true)
-    public List<SupervisionRequestDto> listMyRequestsAsSupervisor() {
-        UUID userId = currentUser.getUserIdOrThrow();
+    public List<SupervisionRequestResponse> listMyRequests() {
+        UUID requesterId = currentUser.getUserIdOrThrow();
 
-        return requestRepository.findBySupervisorUserIdOrderByCreatedAtDesc(userId)
+        return supervisionRequestRepository
+                .findByRequesterUserIdOrderByCreatedAtDesc(requesterId)
                 .stream()
-                .map(SupervisionRequestDto::fromEntity)
-                .collect(Collectors.toList());
+                .map(SupervisionRequestResponse::fromEntity)
+                .toList();
     }
 
-
     /*
-        슈퍼비전 요청 상태 변경
+        B가 승인
      */
     @Transactional
-    public SupervisionRequestDto updateRequestStatus(
+    public SupervisionRequestResponse approve(
             UUID requestId,
-            SupervisionRequestUpdateStatusRequest request
+            OffsetDateTime allowedFrom,
+            OffsetDateTime allowedUntil
     ) {
-        UUID userId = currentUser.getUserIdOrThrow();
+        UUID supervisorId = currentUser.getUserIdOrThrow();
 
-        SupervisionRequest entity = requestRepository.findById(requestId)
+        SupervisionRequest entity = supervisionRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "해당 슈퍼비전 요청을 찾을 수 없습니다."
+                        HttpStatus.NOT_FOUND, "요청을 찾을 수 없습니다."
                 ));
 
-        String newStatus = request.status();
-
-        // 간단한 권한/상태 체크 (MVP)
-        switch (newStatus) {
-            case "approved", "rejected" -> {
-                // supervisor 만 가능
-                if (!entity.getSupervisorUserId().equals(userId)) {
-                    throw new ResponseStatusException(
-                            HttpStatus.FORBIDDEN,
-                            "승인/거절은 슈퍼바이저만 할 수 있습니다."
-                    );
-                }
-                if (!"pending".equals(entity.getStatus())) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "pending 상태에서만 승인/거절이 가능합니다."
-                    );
-                }
-                entity.setStatus(newStatus);
-                // 승인 시 기간 수정 가능
-                entity.setAllowedFrom(request.allowedFrom());
-                entity.setAllowedUntil(request.allowedUntil());
-            }
-            case "revoked" -> {
-                // requester 만 가능
-                if (!entity.getRequesterUserId().equals(userId)) {
-                    throw new ResponseStatusException(
-                            HttpStatus.FORBIDDEN,
-                            "요청 취소는 요청자만 할 수 있습니다."
-                    );
-                }
-                if ("rejected".equals(entity.getStatus())) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "이미 거절된 요청은 취소할 수 없습니다."
-                    );
-                }
-                entity.setStatus("revoked");
-            }
-            default -> throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "지원하지 않는 상태 값입니다: " + newStatus
-            );
+        if (!entity.getSupervisorUserId().equals(supervisorId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "승인 권한이 없습니다.");
         }
 
-        entity.setUpdatedAt(OffsetDateTime.now());
-        requestRepository.save(entity);
+        entity.setStatus(SupervisionStatus.APPROVED);
+        entity.setAllowedFrom(allowedFrom != null ? allowedFrom : OffsetDateTime.now());
+        entity.setAllowedUntil(allowedUntil);
 
-        return SupervisionRequestDto.fromEntity(entity);
+        return SupervisionRequestResponse.fromEntity(entity);
     }
 
     /*
-        특정 요청에 대해 share 생성
+        B가 거절
      */
     @Transactional
-    public SupervisionShareDto createShare(
-            UUID requestId,
-            SupervisionShareCreateRequest request
-    ) {
-        UUID userId = currentUser.getUserIdOrThrow();
+    public SupervisionRequestResponse reject(UUID requestId) {
+        UUID supervisorId = currentUser.getUserIdOrThrow();
 
-        SupervisionRequest supervisionRequest = requestRepository.findById(requestId)
+        SupervisionRequest entity = supervisionRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "해당 슈퍼비전 요청을 찾을 수 없습니다."
+                        HttpStatus.NOT_FOUND, "요청을 찾을 수 없습니다."
                 ));
 
-        // 요청 상태 확인
-        if (!"approved".equals(supervisionRequest.getStatus())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "승인된 요청에 대해서만 문서를 공유할 수 있습니다."
-            );
+        if (!entity.getSupervisorUserId().equals(supervisorId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "거절 권한이 없습니다.");
         }
 
-        // 요청자만 share 생성 가능
-        if (!supervisionRequest.getRequesterUserId().equals(userId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "이 슈퍼비전 요청에 대해 share 를 생성할 권한이 없습니다."
-            );
-        }
+        entity.setStatus(SupervisionStatus.REJECTED);
+        entity.setAllowedFrom(null);
+        entity.setAllowedUntil(null);
 
-        UUID caseId = supervisionRequest.getCaseId();
-
-        // recordType / recordId 가 해당 case 에 속하는지 검증
-        switch (request.recordType()) {
-            case "session_record" -> {
-                SessionRecordMeta session = sessionRecordMetaRepository.findById(request.recordId())
-                        .orElseThrow(() -> new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "해당 회기 메타를 찾을 수 없습니다."
-                        ));
-                if (!session.getCaseId().equals(caseId)) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "해당 회기는 이 슈퍼비전 요청의 사례에 속하지 않습니다."
-                    );
-                }
-            }
-            case "document" -> {
-                CaseDocumentMeta doc = caseDocumentMetaRepository.findById(request.recordId())
-                        .orElseThrow(() -> new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "해당 문서 메타를 찾을 수 없습니다."
-                        ));
-                if (!doc.getCaseId().equals(caseId)) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "해당 문서는 이 슈퍼비전 요청의 사례에 속하지 않습니다."
-                    );
-                }
-            }
-            default -> throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "지원하지 않는 recordType 입니다: " + request.recordType()
-            );
-        }
-
-        OffsetDateTime now = OffsetDateTime.now();
-
-        SupervisionShare share = SupervisionShare.builder()
-                .id(UUID.randomUUID())
-                .supervisionRequestId(supervisionRequest.getId())
-                .recordType(request.recordType())
-                .recordId(request.recordId())
-                .wrappedDekForSupervisor(request.wrappedDekForSupervisor())
-                .expiresAt(request.expiresAt())
-                .revokedAt(null)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
-
-        shareRepository.save(share);
-
-        return SupervisionShareDto.fromEntity(share);
+        return SupervisionRequestResponse.fromEntity(entity);
     }
 
     /*
-        특정 요청에 대한 share 목록 조회
+        현재 userId가 이 caseId를 supervision 기반으로 열람 가능 여부
      */
     @Transactional(readOnly = true)
-    public List<SupervisionShareDto> listShares(UUID requestId) {
-        UUID userId = currentUser.getUserIdOrThrow();
-
-        SupervisionRequest supervisionRequest = requestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "해당 슈퍼비전 요청을 찾을 수 없습니다."
-                ));
-
-        if (!supervisionRequest.getRequesterUserId().equals(userId) &&
-                !supervisionRequest.getSupervisorUserId().equals(userId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "이 슈퍼비전 요청의 share 목록을 조회할 권한이 없습니다."
-            );
-        }
-
-        return shareRepository.findBySupervisionRequestIdOrderByCreatedAtDesc(requestId)
-                .stream()
-                .map(SupervisionShareDto::fromEntity)
-                .collect(Collectors.toList());
+    public boolean hasSupervisionAccess(UUID userId, UUID caseId) {
+        return supervisionRequestRepository.hasActiveApprovedRequest(
+                userId,
+                caseId,
+                OffsetDateTime.now()
+        );
     }
 }
