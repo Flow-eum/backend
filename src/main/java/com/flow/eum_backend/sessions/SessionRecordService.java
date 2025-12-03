@@ -1,13 +1,12 @@
 package com.flow.eum_backend.sessions;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flow.eum_backend.auth.CurrentUser;
 import com.flow.eum_backend.cases.CaseEntity;
 import com.flow.eum_backend.cases.CaseMemberRepository;
 import com.flow.eum_backend.cases.CaseRepository;
-import com.flow.eum_backend.sessions.dto.SessionRecordCreateRequest;
-import com.flow.eum_backend.sessions.dto.SessionRecordDetailDto;
-import com.flow.eum_backend.sessions.dto.SessionRecordSummaryDto;
-import com.flow.eum_backend.sessions.dto.SessionRecordUpdateRequest;
+import com.flow.eum_backend.sessions.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,8 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /*
@@ -30,6 +28,7 @@ public class SessionRecordService {
     private final CaseRepository caseRepository;
     private final CaseMemberRepository caseMemberRepository;
     private final CurrentUser currentUser;
+    private final ObjectMapper objectMapper;
 
     /*
         새 상담 회차 메타 생성
@@ -86,7 +85,6 @@ public class SessionRecordService {
         return SessionRecordDetailDto.fromEntity(entity);
     }
 
-
     /*
         특정 사례의 모든 상담 회차 목록 조회
      */
@@ -108,7 +106,6 @@ public class SessionRecordService {
                 .map(SessionRecordSummaryDto::fromEntity)
                 .collect(Collectors.toList());
     }
-
 
     /*
         단일 회차 메타 상세 조회
@@ -133,7 +130,6 @@ public class SessionRecordService {
 
         return SessionRecordDetailDto.fromEntity(entity);
     }
-
 
     /*
         회차 메타 수정
@@ -186,5 +182,87 @@ public class SessionRecordService {
         sessionRecordMetaRepository.save(entity);
 
         return SessionRecordDetailDto.fromEntity(entity);
+    }
+
+    /*
+        세션별 Ai 출력 저장
+     */
+    @Transactional
+    public void saveAiOutput(UUID caseId, UUID sessionId, SaveAiOutputRequest request) {
+        UUID userId = currentUser.getUserIdOrThrow();
+
+        // 케이스 멤버 권한 체크
+        caseMemberRepository.findByCaseIdAndUserIdAndIsActiveTrue(caseId, userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "이 사례의 AI 결과를 저장할 권한이 없습니다."
+                ));
+
+        SessionRecordMeta meta = sessionRecordMetaRepository
+                .findByIdAndCaseId(sessionId, caseId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "해당 상담 회차를 찾을 수 없습니다."
+                ));
+
+        Map<String, Object> outputs = parseAiOutputs(meta.getAiOutputs());
+        outputs.put(request.getKey(), request.getValue());
+
+        String json = writeAiOutputs(outputs);
+        meta.setAiOutputs(json);
+    }
+
+    /*
+        세션멸 Ai 출력 전체 조회
+     */
+    @Transactional(readOnly = true)
+    public AiOutputsResponse getAiOutputs(UUID caseId, UUID sessionId) {
+        UUID userId = currentUser.getUserIdOrThrow();
+
+        caseMemberRepository.findByCaseIdAndUserIdAndIsActiveTrue(caseId, userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "이 사례의 AI 결과를 조회할 권한이 없습니다."
+                ));
+
+        SessionRecordMeta meta = sessionRecordMetaRepository
+                .findByIdAndCaseId(sessionId, caseId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "해당 상담 회차를 찾을 수 없습니다."
+                ));
+
+        Map<String, Object> outputs = parseAiOutputs(meta.getAiOutputs());
+
+        return new AiOutputsResponse(outputs);
+    }
+
+    /*
+        세션별 Ai 출력 중 특정 key만 조회
+     */
+    public Optional<Object> getAiOutputByKey(UUID caseId, UUID sessionId, String key) {
+        AiOutputsResponse all = getAiOutputs(caseId, sessionId);
+
+        return Optional.ofNullable(all.getOutputs().get(key));
+    }
+
+    private Map<String, Object> parseAiOutputs(String json) {
+        if (json == null || json.isBlank()) {
+            return new HashMap<>();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            // JSON이 깨져 있어도 서비스 전체가 죽지 않도록 방어
+            return new HashMap<>();
+        }
+    }
+
+    private String writeAiOutputs(Map<String, Object> outputs) {
+        try {
+            return objectMapper.writeValueAsString(outputs);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize ai_outputs", e);
+        }
     }
 }

@@ -52,6 +52,10 @@ public class AssessmentStructured {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "genogram_json", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String genogramJson;
+
     @PrePersist
     public void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
