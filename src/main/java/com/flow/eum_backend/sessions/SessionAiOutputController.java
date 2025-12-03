@@ -72,7 +72,7 @@ public class SessionAiOutputController {
             description = "ai_outputs 중 지정한 key에 해당하는 값만 단일로 반환합니다."
     )
     public ResponseEntity<Object> getAiOutputByKey(
-            @PathVariable("caseID") UUID caseId,
+            @PathVariable("caseId") UUID caseId,
             @PathVariable("sessionId") UUID sessionId,
             @PathVariable("key") String key
     ) {
