@@ -33,6 +33,7 @@ dependencies {
 	implementation("me.paulschwarz:spring-dotenv:4.0.0") // env 파일 읽어줌
 	implementation("org.postgresql:postgresql:42.7.3") // PostgreSQL 드라이버
 
+    implementation 'org.springframework.boot:spring-boot-starter-webflux' //
 	implementation "com.vladmihalcea:hibernate-types-60:2.21.1"
 
 	// JWT 라이브러리
