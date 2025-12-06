@@ -31,3 +31,12 @@ logging:
 supabase:
   jwt:
     secret: ${SUPABASE_JWT_SECRET}
+  base-url: ${SUPABASE_BASE_URL}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
+  storage:
+    audio-bucket: ${SUPABASE_AUDIO_BUCKET:session-audio}
+    genogram-bucket: ${SUPABASE_GENOGRAM_BUCKET:genogram}
+
+ai:
+  api:
+    base-url: ${AI_API_BASE_URL:http://localhost:8000}
