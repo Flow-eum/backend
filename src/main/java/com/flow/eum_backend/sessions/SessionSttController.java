@@ -6,6 +6,7 @@ import com.flow.eum_backend.auth.CurrentUser;
 import com.flow.eum_backend.cases.CaseMemberRepository;
 import com.flow.eum_backend.infra.SupabaseStorageClient;
 import com.flow.eum_backend.supervision.SupervisionService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/cases/{caseId}/sessions/{sessionId}")
+@SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 public class SessionSttController {
 
