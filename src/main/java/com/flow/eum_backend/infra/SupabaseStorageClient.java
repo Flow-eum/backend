@@ -1,6 +1,7 @@
 package com.flow.eum_backend.infra;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -20,12 +21,16 @@ public class SupabaseStorageClient {
 
     private final WebClient.Builder webClientBuilder;
 
+    @Value("${supabase.base-url}")
     private String supabaseBaseUrl;
 
+    @Value("${supabase.service-role-key}")
     private String supabaseServiceRoleKey;
 
+    @Value("${supabase.storage.audio-bucket}")
     private String audioBucket;
 
+    @Value("${supabase.storage.genogram-bucket}")
     private String genogramBucket;
 
     private WebClient client() {
