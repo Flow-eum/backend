@@ -52,23 +52,17 @@ public class SupabaseStorageClient {
 
         String objectPath = "cases/%s/sessions/%s/%s".formatted(caseId, sessionId, filename);
 
-        MultipartBodyBuilder mb = new MultipartBodyBuilder();
-        mb.part("file", new ByteArrayResource(bytes) {
-                    @Override
-                    public String getFilename() {
-                        return filename;
-                    }
-                })
-                .contentType(contentType != null
-                        ? MediaType.parseMediaType(contentType)
-                        : MediaType.APPLICATION_OCTET_STREAM);
-        mb.part("path", objectPath);
+        String fullUri = "/storage/v1/object/" + audioBucket + "/" + objectPath;
 
+        // 3. API 호출
         client()
                 .post()
-                .uri("/storage/v1/object/{bucket}", audioBucket)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(mb.build()))
+                .uri(fullUri)
+                // [해결책 1] 이미 파일이 있어도 에러 내지 말고 덮어써라! (이게 없으면 400 에러 자주 남)
+                .header("x-upsert", "true")
+                // [해결책 2] 타입을 명확하게 '바이너리 스트림'으로 고정 (가장 안전함)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .bodyValue(bytes)
                 .retrieve()
                 .bodyToMono(String.class)
                 .block(Duration.ofMinutes(1));
