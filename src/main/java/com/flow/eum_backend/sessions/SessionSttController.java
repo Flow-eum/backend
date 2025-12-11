@@ -46,11 +46,14 @@ public class SessionSttController {
         }
     }
 
-    @PostMapping("/stt/transcribe")
+    @PostMapping(
+            value = "/stt/transcribe",
+            consumes = "multipart/form-data"
+    )
     public ResponseEntity<SttDtos.SttResult> transcribe(
             @PathVariable("caseId") UUID caseId,
             @PathVariable("sessionId") UUID sessionId,
-            @PathVariable("file") MultipartFile file
+            @org.springframework.web.bind.annotation.RequestPart("file") MultipartFile file
     ) throws IOException {
         UUID userId = currentUser.getUserIdOrThrow();
         checkCaseAccessOrThrow(caseId, userId);

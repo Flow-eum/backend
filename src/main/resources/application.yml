@@ -8,6 +8,11 @@ spring:
     password: ${SUPABASE_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 60MB
+
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
