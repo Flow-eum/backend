@@ -2,6 +2,7 @@ package com.flow.eum_backend.assessment;
 
 import com.flow.eum_backend.assessment.dto.NeedAssessmentCreateRequest;
 import com.flow.eum_backend.assessment.dto.NeedAssessmentResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @RequestMapping("/api/cases/{caseId}/need-assessments")
 public class NeedAssessmentController {
 
