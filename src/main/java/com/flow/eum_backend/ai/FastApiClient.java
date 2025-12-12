@@ -1,6 +1,8 @@
 package com.flow.eum_backend.ai;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flow.eum_backend.ai.dto.CasePersonalDtos;
 import com.flow.eum_backend.ai.dto.SttDtos;
 import com.flow.eum_backend.assessment.dto.GenogramPayload;
 import lombok.RequiredArgsConstructor;
@@ -87,5 +89,53 @@ public class FastApiClient {
                 .bodyToMono(byte[].class);
 
         return mono.block(Duration.ofMinutes(3));
+    }
+
+    /*
+        FastAPI /cases/personal 호출
+     */
+    public CasePersonalDtos.CasePersonalSaveResponse saveCasePersonal(JsonNode payload) {
+
+        Mono<CasePersonalDtos.CasePersonalSaveResponse> mono = client()
+                .post()
+                .uri("/cases/personal")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(payload)
+                .retrieve()
+                .bodyToMono(CasePersonalDtos.CasePersonalSaveResponse.class);
+
+        CasePersonalDtos.CasePersonalSaveResponse resp = mono.block(Duration.ofSeconds(10));
+        if (resp == null || !resp.isSuccess()) {
+            throw new RuntimeException(
+                    "개인정보 저장 실패: " + (resp != null ? resp.getMessage() : "response is null")
+            );
+        }
+        return resp;
+    }
+
+    /*
+        FastAPI /cases/similar
+     */
+    public CasePersonalDtos.CaseSimilarResponse findSimilarCases(String caseId, int topK) {
+
+        JsonNode body = objectMapper.createObjectNode()
+                .put("case_id", caseId)
+                .put("top_k", topK);
+
+        Mono<CasePersonalDtos.CaseSimilarResponse> mono = client()
+                .post()
+                .uri("/cases/similar")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(CasePersonalDtos.CaseSimilarResponse.class);
+
+        CasePersonalDtos.CaseSimilarResponse resp = mono.block(Duration.ofSeconds(10));
+        if (resp == null || !resp.isSuccess()) {
+            throw new RuntimeException(
+                    "유사사례 조회 실패: " + (resp != null ? resp.getMessage() : "response is null")
+            );
+        }
+        return resp;
     }
 }
