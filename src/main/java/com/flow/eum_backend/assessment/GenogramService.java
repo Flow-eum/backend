@@ -1,6 +1,7 @@
 package com.flow.eum_backend.assessment;
 
 import com.flow.eum_backend.ai.FastApiClient;
+import com.flow.eum_backend.assessment.dto.GenogramPayload;
 import com.flow.eum_backend.infra.SupabaseStorageClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,7 @@ public class GenogramService {
     private final AssessmentStructuredRepository assessmentRepository;
     private final FastApiClient fastApiClient;
     private final SupabaseStorageClient storageClient;
+    private final GenogramConverter genogramConverter;
 
     @Transactional(readOnly = true)
     public String renderGenogramAndGetUrl(UUID caseId) {
@@ -27,21 +29,16 @@ public class GenogramService {
                         "해당 사례의 사정 기록을 찾을 수 없습니다."
                 ));
 
-        String genogramJson = assessment.getGenogramJson();
-        if (genogramJson == null || genogramJson.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "해당 사례에는 가계도(genogram_json) 정보가 없습니다."
-            );
-        }
+        // 1) 사정기록(form) → GenogramPayload
+        GenogramPayload payload = genogramConverter.fromAssessmentStructured(assessment);
 
-        // 2) FastAPI로 렌더링 요청 → SVG bytes
-        byte[] svgBytes = fastApiClient.renderGenogram(genogramJson);
+        // 2) FastAPI 호출 (아래 4번에서 FastApiClient 방식에 따라 코드가 살짝 달라짐)
+        byte[] svgBytes = fastApiClient.renderGenogram(payload);
 
         // 3) Supabase Storage 업로드
         String objectPath = storageClient.uploadGenogramSvg(caseId, svgBytes);
 
-        // 4) Signed URL 생성 (예: 1시간)
+        // 4) Signed URL 생성
         return storageClient.createSignedGenogramUrl(objectPath, 3600);
     }
 }

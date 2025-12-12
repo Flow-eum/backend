@@ -2,6 +2,7 @@ package com.flow.eum_backend.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flow.eum_backend.ai.dto.SttDtos;
+import com.flow.eum_backend.assessment.dto.GenogramPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -76,30 +77,15 @@ public class FastApiClient {
      * - 입력: genogram JSON 문자열
      * - 출력: SVG 바이너리
      */
-    public byte[] renderGenogram(String genogramJson) {
-        try {
-            byte[] jsonBytes = genogramJson.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    public byte[] renderGenogram(GenogramPayload payload) {
+        Mono<byte[]> mono = client()
+                .post()
+                .uri("/genogram/render")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(payload)   // WebClient가 내부에서 JSON으로 직렬화
+                .retrieve()
+                .bodyToMono(byte[].class);
 
-            MultipartBodyBuilder mb = new MultipartBodyBuilder();
-            mb.part("file", new ByteArrayResource(jsonBytes) {
-                        @Override
-                        public String getFilename() {
-                            return "genogram.json";
-                        }
-                    })
-                    .contentType(MediaType.APPLICATION_JSON);
-
-            Mono<byte[]> mono = client()
-                    .post()
-                    .uri("/genogram/render")
-                    .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .body(BodyInserters.fromMultipartData(mb.build()))
-                    .retrieve()
-                    .bodyToMono(byte[].class);
-
-            return mono.block(Duration.ofMinutes(3));
-        } catch (Exception e) {
-            throw new RuntimeException("Genogram 렌더링 실패", e);
-        }
+        return mono.block(Duration.ofMinutes(3));
     }
 }
