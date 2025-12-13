@@ -92,6 +92,24 @@ public class FastApiClient {
     }
 
     /*
+        * FastAPI /ecomap/render 호출
+     */
+    public byte[] renderEcomap(GenogramPayload payload) {
+        Mono<byte[]> mono = client()
+                .post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/ecomap/render")
+                        .queryParam("save_svg", false)   // 필요 없으면 이 줄 삭제
+                        .build())
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(payload)   // GenogramPayload -> JSON
+                .retrieve()
+                .bodyToMono(byte[].class);
+
+        return mono.block(Duration.ofMinutes(3));
+    }
+
+    /*
         FastAPI /cases/personal 호출
      */
     public CasePersonalDtos.CasePersonalSaveResponse saveCasePersonal(JsonNode payload) {
