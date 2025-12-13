@@ -1,7 +1,10 @@
 package com.flow.eum_backend.ai;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flow.eum_backend.ai.dto.CasePersonalDtos;
 import com.flow.eum_backend.ai.dto.SttDtos;
+import com.flow.eum_backend.assessment.dto.GenogramPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -76,30 +79,81 @@ public class FastApiClient {
      * - 입력: genogram JSON 문자열
      * - 출력: SVG 바이너리
      */
-    public byte[] renderGenogram(String genogramJson) {
-        try {
-            byte[] jsonBytes = genogramJson.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    public byte[] renderGenogram(GenogramPayload payload) {
+        Mono<byte[]> mono = client()
+                .post()
+                .uri("/genogram/render")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(payload)   // WebClient가 내부에서 JSON으로 직렬화
+                .retrieve()
+                .bodyToMono(byte[].class);
 
-            MultipartBodyBuilder mb = new MultipartBodyBuilder();
-            mb.part("file", new ByteArrayResource(jsonBytes) {
-                        @Override
-                        public String getFilename() {
-                            return "genogram.json";
-                        }
-                    })
-                    .contentType(MediaType.APPLICATION_JSON);
+        return mono.block(Duration.ofMinutes(3));
+    }
 
-            Mono<byte[]> mono = client()
-                    .post()
-                    .uri("/genogram/render")
-                    .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .body(BodyInserters.fromMultipartData(mb.build()))
-                    .retrieve()
-                    .bodyToMono(byte[].class);
+    /*
+        * FastAPI /ecomap/render 호출
+     */
+    public byte[] renderEcomap(GenogramPayload payload) {
+        Mono<byte[]> mono = client()
+                .post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/ecomap/render")
+                        .queryParam("save_svg", false)   // 필요 없으면 이 줄 삭제
+                        .build())
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(payload)   // GenogramPayload -> JSON
+                .retrieve()
+                .bodyToMono(byte[].class);
 
-            return mono.block(Duration.ofMinutes(3));
-        } catch (Exception e) {
-            throw new RuntimeException("Genogram 렌더링 실패", e);
+        return mono.block(Duration.ofMinutes(3));
+    }
+
+    /*
+        FastAPI /cases/personal 호출
+     */
+    public CasePersonalDtos.CasePersonalSaveResponse saveCasePersonal(JsonNode payload) {
+
+        Mono<CasePersonalDtos.CasePersonalSaveResponse> mono = client()
+                .post()
+                .uri("/cases/personal")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(payload)
+                .retrieve()
+                .bodyToMono(CasePersonalDtos.CasePersonalSaveResponse.class);
+
+        CasePersonalDtos.CasePersonalSaveResponse resp = mono.block(Duration.ofSeconds(10));
+        if (resp == null || !resp.isSuccess()) {
+            throw new RuntimeException(
+                    "개인정보 저장 실패: " + (resp != null ? resp.getMessage() : "response is null")
+            );
         }
+        return resp;
+    }
+
+    /*
+        FastAPI /cases/similar
+     */
+    public CasePersonalDtos.CaseSimilarResponse findSimilarCases(String caseId, int topK) {
+
+        JsonNode body = objectMapper.createObjectNode()
+                .put("case_id", caseId)
+                .put("top_k", topK);
+
+        Mono<CasePersonalDtos.CaseSimilarResponse> mono = client()
+                .post()
+                .uri("/cases/similar")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(CasePersonalDtos.CaseSimilarResponse.class);
+
+        CasePersonalDtos.CaseSimilarResponse resp = mono.block(Duration.ofSeconds(10));
+        if (resp == null || !resp.isSuccess()) {
+            throw new RuntimeException(
+                    "유사사례 조회 실패: " + (resp != null ? resp.getMessage() : "response is null")
+            );
+        }
+        return resp;
     }
 }

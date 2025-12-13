@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class GenogramService {
+public class EcomapService {
 
     private final AssessmentStructuredRepository assessmentRepository;
     private final FastApiClient fastApiClient;
@@ -21,7 +21,7 @@ public class GenogramService {
     private final GenogramConverter genogramConverter;
 
     @Transactional(readOnly = true)
-    public String renderGenogramAndGetUrl(UUID caseId) {
+    public String renderEcomapAndGetUrl(UUID caseId) {
         AssessmentStructured assessment = assessmentRepository
                 .findFirstByCaseIdOrderByAssessmentDateDesc(caseId)
                 .orElseThrow(() -> new ResponseStatusException(

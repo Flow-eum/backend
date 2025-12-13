@@ -2,6 +2,7 @@ package com.flow.eum_backend.assessment;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flow.eum_backend.ai.CasePersonalInfoService;
 import com.flow.eum_backend.assessment.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,7 @@ public class NeedAssessmentService {
 
     private final NeedAssessmentRepository assessmentRepository;
     private final ObjectMapper objectMapper;
+    private final CasePersonalInfoService casePersonalInfoService;
 
     @Transactional
     public NeedAssessmentResponse create(UUID caseId, NeedAssessmentCreateRequest request) {
@@ -67,6 +69,9 @@ public class NeedAssessmentService {
         }
 
         NeedAssessment saved = assessmentRepository.save(assessment);
+
+        casePersonalInfoService.syncCasePersonalInfo(caseId);
+
         return toResponse(saved);
     }
 

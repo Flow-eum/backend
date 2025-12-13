@@ -2,6 +2,7 @@ package com.flow.eum_backend.assessment;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flow.eum_backend.ai.CasePersonalInfoService;
 import com.flow.eum_backend.assessment.dto.AssessmentFormDto;
 import com.flow.eum_backend.assessment.dto.SaveAssessmentRequest;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ public class AssessmentStructuredService {
 
     private final AssessmentStructuredRepository repository;
     private final ObjectMapper objectMapper;
+    private final CasePersonalInfoService casePersonalInfoService;
 
     /**
      * 사정기록지 저장 (신규/수정)
@@ -40,6 +42,8 @@ public class AssessmentStructuredService {
             entity.setCreatedAt(OffsetDateTime.now());
         }
         entity.setUpdatedAt(OffsetDateTime.now());
+
+        casePersonalInfoService.syncCasePersonalInfo(caseId);
 
         return repository.save(entity);
     }
